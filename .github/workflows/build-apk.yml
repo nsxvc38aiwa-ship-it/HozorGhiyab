@@ -22,7 +22,7 @@ jobs:
         with:
           gradle-version: "8.9"
       - name: Extract Android project
-        run: unzip -q HozorGhiyabAndroid_PhoneBuild_v5.zip
+        run: unzip -q HozorGhiyabAndroid_PhoneBuild_v6.zip
       - name: Build debug APK
         run: |
           cd HozorGhiyabAndroid
