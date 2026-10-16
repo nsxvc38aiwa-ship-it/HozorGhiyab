@@ -1,34 +1,69 @@
 
 name: Build Android APK
-"on":
+
+on:
   workflow_dispatch:
   push:
-    paths:
-      - "HozorGhiyabAndroid_PhoneBuild_v2.zip"
-      - ".github/workflows/build-apk.yml"
+    branches:
+      - main
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Set up Java 17
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
-      - name: Extract Android project
-        run: unzip -q HozorGhiyabAndroid_PhoneBuild_v7.zip
+          java-version: '17'
+
+      - name: Find and extract ZIP
+        shell: bash
+        run: |
+          ZIP_FILE="HozorGhiyabAndroid_PhoneBuild_v7.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: $ZIP_FILE not found in repository root."
+            echo "ZIP files available:"
+            find . -maxdepth 3 -type f -iname "*.zip"
+            exit 1
+          fi
+
+          mkdir -p extracted
+          unzip -q "$ZIP_FILE" -d extracted
+
+      - name: Locate Android project
+        shell: bash
+        run: |
+          GRADLEW="$(find extracted -type f -name gradlew -print -quit)"
+
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: gradlew not found in ZIP."
+            find extracted -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$GRADLEW")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          chmod +x "$GRADLEW"
+
       - name: Build debug APK
         run: |
-          cd HozorGhiyabAndroid
-          gradle --no-daemon assembleDebug
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon assembleDebug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HozorGhiyab-APK
-          path: HozorGhiyabAndroid/app/build/outputs/apk/debug/app-debug.apk
+          name: HozorGhiyab-debug-apk
+          path: |
+            extracted/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
